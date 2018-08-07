@@ -49,6 +49,7 @@
 #include "text/collator_jni.hpp"
 #include "text/local_glyph_rasterizer_jni.hpp"
 #include "java/lang.hpp"
+#include "style/sources/on_geojson_source_loaded_listener.hpp"
 
 namespace mbgl {
 namespace android {
@@ -167,6 +168,7 @@ void registerNatives(JavaVM *vm) {
     Source::registerNative(env);
     Light::registerNative(env);
     Position::registerNative(env);
+    OnGeoJsonSourceLoadedListener::registerNative(env);
 
     // Map
     CameraPosition::registerNative(env);
