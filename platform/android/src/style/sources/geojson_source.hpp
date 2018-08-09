@@ -14,10 +14,10 @@ namespace android {
 class FeatureConverter {
 public:
     using Callback = std::function<void (GeoJSON)>;
-    void convertFeatureCollection(jni::Object<geojson::FeatureCollection>, ActorRef<Callback>);
-    void convertFeature(jni::Object<geojson::Feature>, ActorRef<Callback>);
-    void convertGeometry(jni::Object<geojson::Geometry>, ActorRef<Callback>);
     void convertJson(jni::String, ActorRef<Callback>);
+
+    template <class JNIType>
+    void convertObject(jni::Object<JNIType>, ActorRef<Callback>);
 };
 
 class GeoJSONSource : public Source {
@@ -51,6 +51,9 @@ public:
 
     void setGeometryAsync(jni::JNIEnv&, jni::Object<geojson::Geometry>, jni::Object<OnGeoJsonSourceLoadedListener>);
 
+    template <class JNIType>
+    void setAsync(jni::JNIEnv& env, jni::Object<JNIType> jObject, jni::Object<OnGeoJsonSourceLoadedListener> jListener);
+
     void setURL(jni::JNIEnv&, jni::String);
 
     jni::Array<jni::Object<geojson::Feature>> querySourceFeatures(jni::JNIEnv&,
@@ -60,12 +63,7 @@ public:
 
 private:
     jni::Object<Source> createJavaPeer(jni::JNIEnv&);
-    jni::UniqueObject<geojson::FeatureCollection> collectionRef;
-    jni::UniqueObject<geojson::Feature> featureRef;
-    jni::UniqueObject<geojson::Geometry> geometryRef;
-    jni::UniqueObject<jni::StringTag> stringRef;
     std::unique_ptr<Actor<FeatureConverter::Callback>> callback;
-    jni::UniqueObject<OnGeoJsonSourceLoadedListener> sourceLoadedListenerRef;
     std::unique_ptr<Actor<FeatureConverter>> converter;
 
 }; // class GeoJSONSource
