@@ -188,7 +188,8 @@ public class GeoJsonSource extends Source {
   }
 
   /**
-   * Updates the GeoJson with a single feature
+   * Updates the GeoJson with a single feature. The update is mainly performed asynchronously,
+   * so the data won't be immediately visible or available to query when this method returns.
    *
    * @param feature the GeoJSON {@link Feature} to set
    */
@@ -198,22 +199,8 @@ public class GeoJsonSource extends Source {
   }
 
   /**
-   * Updates the GeoJson while performing most resource-intensive work on a background thread and notifies the listener
-   * by {@link OnGeoJsonSourceLoadedListener#onGeoJsonSourceLoaded()} when the job is in the same state that
-   * a synchronous update would return at.
-   * <p>
-   * There can only be one asynchronous update running. Any overlapping ones will be rejected.
-   *
-   * @param feature  the GeoJSON {@link Feature} to set
-   * @param listener listens for when the job is finished
-   */
-  public void setGeoJsonAsync(Feature feature, OnGeoJsonSourceLoadedListener listener) {
-    checkThread();
-    nativeSetFeatureAsync(feature, listener);
-  }
-
-  /**
-   * Updates the GeoJson with a single geometry
+   * Updates the GeoJson with a single geometry. The update is mainly performed asynchronously,
+   * so the data won't be immediately visible or available to query when this method returns.
    *
    * @param geometry the GeoJSON {@link Geometry} to set
    */
@@ -223,22 +210,8 @@ public class GeoJsonSource extends Source {
   }
 
   /**
-   * Updates the GeoJson while performing most resource-intensive work on a background thread and notifies the listener
-   * by {@link OnGeoJsonSourceLoadedListener#onGeoJsonSourceLoaded()} when the job is in the same state that
-   * a synchronous update would return at.
-   * <p>
-   * There can only be one asynchronous update running. Any overlapping ones will be rejected.
-   *
-   * @param geometry the GeoJSON {@link Geometry} to set
-   * @param listener listens for when the job is finished
-   */
-  public void setGeoJsonAsync(Geometry geometry, OnGeoJsonSourceLoadedListener listener) {
-    checkThread();
-    nativeSetGeometryAsync(geometry, listener);
-  }
-
-  /**
-   * Updates the GeoJson
+   * Updates the GeoJson. The update is mainly performed asynchronously,
+   * so the data won't be immediately visible or available to query when this method returns.
    *
    * @param features the GeoJSON FeatureCollection
    */
@@ -248,43 +221,14 @@ public class GeoJsonSource extends Source {
   }
 
   /**
-   * Updates the GeoJson while performing most resource-intensive work on a background thread and notifies the listener
-   * by {@link OnGeoJsonSourceLoadedListener#onGeoJsonSourceLoaded()} when the job is in the same state that
-   * a synchronous update would return at.
-   * <p>
-   * There can only be one asynchronous update running. Any overlapping ones will be rejected.
-   *
-   * @param features the GeoJSON FeatureCollection
-   * @param listener listens for when the job is finished
-   */
-  public void setGeoJsonAsync(FeatureCollection features, OnGeoJsonSourceLoadedListener listener) {
-    checkThread();
-    nativeSetFeatureCollectionAsync(features, listener);
-  }
-
-  /**
-   * Updates the GeoJson
+   * Updates the GeoJson. The update is mainly performed asynchronously,
+   * so the data won't be immediately visible or available to query when this method returns.
    *
    * @param json the raw GeoJson FeatureCollection string
    */
   public void setGeoJson(String json) {
     checkThread();
     nativeSetGeoJsonString(json);
-  }
-
-  /**
-   * Updates the GeoJson while performing most resource-intensive work on a background thread and notifies the listener
-   * by {@link OnGeoJsonSourceLoadedListener#onGeoJsonSourceLoaded()} when the job is in the same state that
-   * a synchronous update would return at.
-   * <p>
-   * There can only be one asynchronous update running. Any overlapping ones will be rejected.
-   *
-   * @param json the raw GeoJson FeatureCollection string
-   * @param listener listens for when the job is finished
-   */
-  public void setGeoJsonAsync(String json, OnGeoJsonSourceLoadedListener listener) {
-    checkThread();
-    nativeSetGeoJsonStringAsync(json, listener);
   }
 
   /**
@@ -342,26 +286,13 @@ public class GeoJsonSource extends Source {
   private native void nativeSetGeoJsonString(String geoJson);
 
   @Keep
-  private native void nativeSetGeoJsonStringAsync(String geoJson, OnGeoJsonSourceLoadedListener listener);
-
-  @Keep
   private native void nativeSetFeatureCollection(FeatureCollection geoJson);
-
-  @Keep
-  private native void nativeSetFeatureCollectionAsync(FeatureCollection geoJson,
-                                                      OnGeoJsonSourceLoadedListener listener);
 
   @Keep
   private native void nativeSetFeature(Feature feature);
 
   @Keep
-  private native void nativeSetFeatureAsync(Feature feature, OnGeoJsonSourceLoadedListener listener);
-
-  @Keep
   private native void nativeSetGeometry(Geometry geometry);
-
-  @Keep
-  private native void nativeSetGeometryAsync(Geometry geometry, OnGeoJsonSourceLoadedListener listener);
 
   @Keep
   private native Feature[] querySourceFeatures(Object[] filter);
