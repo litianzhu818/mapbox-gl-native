@@ -58,31 +58,27 @@ namespace android {
 
     GeoJSONSource::~GeoJSONSource() = default;
 
-    void GeoJSONSource::setGeoJSONString(jni::JNIEnv& env, jni::String json) {
-        using namespace mbgl::style::conversion;
+    void GeoJSONSource::setGeoJSONString(jni::JNIEnv& env, jni::String jString) {
 
-        // Convert the jni object
-        Error error;
-        optional<GeoJSON> converted = convert<GeoJSON>(mbgl::android::Value(env, json), error);
-        if(!converted) {
-            mbgl::Log::Error(mbgl::Event::JNI, "Error setting geo json: " + error.message);
-            return;
-        }
+        std::string json = jni::Make<std::string>(env, jString);
 
-        // Update the core source
-        source.as<mbgl::style::GeoJSONSource>()->GeoJSONSource::setGeoJSON(*converted);
+        // creating a new Update
+        std::unique_ptr<StringUpdate> stringUpdate = makeUpdate<StringUpdate>(json);
+        stringUpdate->makeUpdateFn();
+
+        setAsync(std::move(stringUpdate));
     }
 
     void GeoJSONSource::setFeatureCollection(jni::JNIEnv& env, jni::Object<geojson::FeatureCollection> jFeatures) {
-        setAsync(env, jFeatures);
+        setCollectionAsync(env, jFeatures);
     }
 
     void GeoJSONSource::setFeature(jni::JNIEnv& env, jni::Object<geojson::Feature> jFeature) {
-        setAsync(env, jFeature);
+        setCollectionAsync(env, jFeature);
     }
 
     void GeoJSONSource::setGeometry(jni::JNIEnv& env, jni::Object<geojson::Geometry> jGeometry) {
-        setAsync(env, jGeometry);
+        setCollectionAsync(env, jGeometry);
     }
 
     void GeoJSONSource::setURL(jni::JNIEnv& env, jni::String url) {
@@ -115,12 +111,21 @@ namespace android {
     }
 
     template <class JNIType>
-    void GeoJSONSource::setAsync(jni::JNIEnv& env, jni::Object<JNIType> jObject) {
+    void GeoJSONSource::setCollectionAsync(jni::JNIEnv& env, jni::Object<JNIType> jObject) {
 
         std::shared_ptr<jni::jobject> object = std::shared_ptr<jni::jobject>(jObject.NewGlobalRef(env).release()->Get(), GenericGlobalRefDeleter());
 
         // creating a new Update
-        awaitingUpdate = std::make_unique<Update>(object, std::make_unique<Actor<Callback>>(
+        std::unique_ptr<CollectionUpdate> collectionUpdate = makeUpdate<CollectionUpdate>(object);
+        collectionUpdate->makeUpdateFn<JNIType>();
+
+        setAsync(std::move(collectionUpdate));
+    }
+
+    template <class UpdateType, typename ObjectType>
+    std::unique_ptr<UpdateType> GeoJSONSource::makeUpdate(ObjectType object) {
+        // creating a new Update
+        return std::make_unique<UpdateType>(object, std::make_unique<Actor<Callback>>(
                 *Scheduler::GetCurrent(),
                 [this](GeoJSON geoJSON) {
                     // conversion from Java features to core ones finished
@@ -138,8 +143,10 @@ namespace android {
                         update.reset();
                     }
                 }));
+    }
 
-        awaitingUpdate->makeUpdateFn<JNIType>();
+    void GeoJSONSource::setAsync(std::unique_ptr<Update> queuedUpdate) {
+        awaitingUpdate = std::move(queuedUpdate);
 
         // If another update is running, wait
         if (update) {
@@ -174,9 +181,21 @@ namespace android {
         );
     }
 
-    void FeatureConverter::convertJson(jni::String,
-                                       ActorRef<Callback>) {
-        //todo raw json async conversion
+    void FeatureConverter::convertJson(std::string json,
+                                       ActorRef<Callback> callback) {
+        using namespace mbgl::style::conversion;
+
+        android::UniqueEnv _env = android::AttachEnv();
+
+        // Convert the jni object
+        Error error;
+        optional<GeoJSON> converted = parseGeoJSON(json, error);
+        if(!converted) {
+            mbgl::Log::Error(mbgl::Event::JNI, "Error setting geo json: " + error.message);
+            return;
+        }
+
+        callback.invoke(&Callback::operator(), *converted);
     }
 
     template<class JNIType>
@@ -189,19 +208,32 @@ namespace android {
         callback.invoke(&Callback::operator(), GeoJSON(geometry));
     }
 
-    Update::Update(std::shared_ptr<jni::jobject> object, std::unique_ptr<Actor<Callback>> callback) {
+    Update::~Update() = default;
+
+    CollectionUpdate::CollectionUpdate(std::shared_ptr<jni::jobject> object, std::unique_ptr<Actor<Callback>> callback) {
         this->object = object;
         this->callback = std::move(callback);
     }
 
     template<class JNIType>
-    void Update::makeUpdateFn() {
-        // create a lambda referencing a correct template class to be used when executing an awaiting update from inside of the last update
+    void CollectionUpdate::makeUpdateFn() {
+        // create a lambda referencing the correct template class to be used when executing an awaiting update from inside of the last update
         this->updateFn = [this](ActorRef<FeatureConverter> converter) {
-            converter.invoke(&FeatureConverter::convertObject<JNIType>, jni::Object<JNIType>(*this->object), this->callback->self());
+            converter.invoke(&FeatureConverter::convertObject<JNIType>,
+                             jni::Object<JNIType>(*this->object), this->callback->self());
         };
     }
 
+    StringUpdate::StringUpdate(std::string json, std::unique_ptr<Actor<Callback>> callback) {
+        this->json = json;
+        this->callback = std::move(callback);
+    }
+
+    void StringUpdate::makeUpdateFn() {
+        this->updateFn = [this](ActorRef<FeatureConverter> converter) {
+            converter.invoke(&FeatureConverter::convertJson, this->json, this->callback->self());
+        };
+    }
 
 } // namespace android
 } // namespace mbgl

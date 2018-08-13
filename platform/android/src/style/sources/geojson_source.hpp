@@ -13,23 +13,38 @@ namespace android {
 using Callback = std::function<void (GeoJSON)>;
 
 struct FeatureConverter {
-    void convertJson(jni::String, ActorRef<Callback>);
+    void convertJson(std::string, ActorRef<Callback>);
 
     template <class JNIType>
     void convertObject(jni::Object<JNIType>, ActorRef<Callback>);
 };
 
 struct Update {
-    std::shared_ptr<jni::jobject> object;
     std::unique_ptr<Actor<Callback>> callback;
 
     using Updater = std::function<void (ActorRef<FeatureConverter>)>;
     Updater updateFn;
 
+    virtual ~Update();
+
+    virtual void makeUpdateFn() {};
+};
+
+struct CollectionUpdate : Update {
+    std::shared_ptr<jni::jobject> object;
+
+    CollectionUpdate(std::shared_ptr<jni::jobject>, std::unique_ptr<Actor<Callback>>);
+
     template <class JNIType>
     void makeUpdateFn();
+};
 
-    Update(std::shared_ptr<jni::jobject>, std::unique_ptr<Actor<Callback>>);
+struct StringUpdate : Update {
+    std::string json;
+
+    StringUpdate(std::string, std::unique_ptr<Actor<Callback>>);
+
+    void makeUpdateFn();
 };
 
 class GeoJSONSource : public Source {
@@ -69,7 +84,12 @@ private:
     std::unique_ptr<Actor<FeatureConverter>> converter;
 
     template <class JNIType>
-    void setAsync(jni::JNIEnv& env, jni::Object<JNIType> jObject);
+    void setCollectionAsync(jni::JNIEnv&, jni::Object<JNIType>);
+
+    template <class UpdateType, typename ObjectType>
+    std::unique_ptr<UpdateType> makeUpdate(ObjectType object);
+
+    void setAsync(std::unique_ptr<Update>);
 
 }; // class GeoJSONSource
 
